@@ -98,6 +98,30 @@ int main() {
            *   sequentially every .02 seconds
            */
 
+	  for (int i = 0; i < 20; i++) {
+	  	next_x_vals.push_back(car_x + 0.5*i);
+		next_y_vals.push_back(car_y);
+	  }
+
+	  for (int i = 0; i < 20; i++) {
+	  	next_x_vals.push_back(next_x_vals[19]);
+		next_y_vals.push_back(car_y + 0.5*i);
+	  }
+
+	  for (int i = 0; i < 20; i++) {
+	  	next_x_vals.push_back(next_x_vals[39] - 0.5*i);
+		next_y_vals.push_back(next_y_vals[39]);
+	  }
+
+	  for (int i = 0; i < 20; i++) {
+	  	next_x_vals.push_back(next_x_vals[59]);
+		next_y_vals.push_back(next_y_vals[59] - 0.5*i);
+	  }
+
+	  for (int i = 0; i < next_x_vals.size(); i++) {
+	  	std::cout << "x: " << next_x_vals[i] << std::endl;
+		std::cout << "y: " << next_y_vals[i] << "\n" << std::endl;
+	  }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
