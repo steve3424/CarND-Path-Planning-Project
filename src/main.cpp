@@ -97,7 +97,40 @@ int main() {
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
-	  
+
+	  double pos_x = car_x;
+	  double pos_y = car_y;
+	  double yaw = deg2rad(car_yaw); 
+	  int previous_path_size = previous_path_x.size();
+
+	  // if previous path exists, use this path first, then append to end
+	  if (previous_path_size != 0) {
+		for (int i = 0; i < previous_path_size; ++i) {
+	  		next_x_vals.push_back(previous_path_x[i]);
+			next_y_vals.push_back(previous_path_y[i]);
+	 	}
+	  	pos_x = previous_path_x.back();
+		pos_y = previous_path_y.back();
+
+		double pos_x2 = previous_path_x[previous_path_size - 2];
+		double pos_y2 = previous_path_y[previous_path_size - 2];
+		yaw = atan2(pos_y-pos_y2, pos_x-pos_x2);
+	  }
+
+	  // translate current position to Frenet
+	  vector<double> pos_frenet = getFrenet(pos_x, pos_y, yaw, map_waypoints_x, map_waypoints_y);
+	  double frenet_s = pos_frenet[0];
+	  double frenet_d = pos_frenet[1];
+
+	  // create straight line in frenet coords, then transform each pair to x,y
+	  double d = 0.5;
+	  for (int i = 0; i < 50-previous_path_size; ++i) {
+	  	double next_s = frenet_s + d*i;
+		double next_d = frenet_d;
+		vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+		next_x_vals.push_back(next_xy[0]);
+		next_y_vals.push_back(next_xy[1]);
+	  } 
 
 	  msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
