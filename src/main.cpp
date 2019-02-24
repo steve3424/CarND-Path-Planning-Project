@@ -7,11 +7,13 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
 #include "json.hpp"
+#include "spline.h"
 
 // for convenience
 using nlohmann::json;
 using std::string;
 using std::vector;
+
 
 int main() {
   uWS::Hub h;
@@ -122,15 +124,44 @@ int main() {
 	  double frenet_s = pos_frenet[0];
 	  double frenet_d = pos_frenet[1];
 
-	  // create straight line in frenet coords, then transform each pair to x,y
-	  double d = 0.5;
-	  for (int i = 0; i < 50-previous_path_size; ++i) {
-	  	double next_s = frenet_s + d*i;
+	  // draw straight line in frenet coordinates (follows lane) and transform them back to XY for spline fitting
+	  vector<double> spline_x;
+	  vector<double> spline_y;
+	  double dist = 1;
+	  for (int i = 0; i < 25; ++i) {
+	  	double next_s = frenet_s + dist*i;
 		double next_d = frenet_d;
 		vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-		next_x_vals.push_back(next_xy[0]);
-		next_y_vals.push_back(next_xy[1]);
+		spline_x.push_back(next_xy[0]);
+		spline_y.push_back(next_xy[1]);
 	  } 
+
+	  // fit spline to points
+	  tk::spline s;
+	  s.set_points(spline_x, spline_y);
+
+	  // create trajectory along spline function (estimation)
+	  dist = 0.5;
+	  double speed_scalar = 0.44;
+	  for (int i = 0; i < 50 - previous_path_size; ++i) {
+		// find next point on spline
+		double spline_x = pos_x + dist;
+	        double spline_y = s(spline_x);
+
+		// create unit vector to next point scaled for velocity
+		Eigen::VectorXd unit_v(2);
+		unit_v << spline_x-pos_x,
+		          spline_y-pos_y;
+		unit_v /= unit_v.norm();
+		unit_v *= speed_scalar;
+
+		next_x_vals.push_back(pos_x + unit_v[0]);
+		next_y_vals.push_back(pos_y + unit_v[1]);
+
+		// update position for next calculation
+		pos_x += unit_v[0];
+		pos_y += unit_v[1];
+	  }
 
 	  msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
