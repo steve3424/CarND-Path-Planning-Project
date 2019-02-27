@@ -92,75 +92,99 @@ int main() {
 
           json msgJson;
 
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
 
-          /**
-           * TODO: define a path made up of (x,y) points that the car will visit
-           *   sequentially every .02 seconds
-           */
-
+	  // reference variables
+	  int lane = 1;
+	  double ref_v = 49.5; // mph
+	  int previous_path_size = previous_path_x.size();
 	  double pos_x = car_x;
 	  double pos_y = car_y;
-	  double yaw = deg2rad(car_yaw); 
-	  int previous_path_size = previous_path_x.size();
+	  double yaw = deg2rad(car_yaw);
 
-	  // if previous path exists, use this path first, then append to end
-	  if (previous_path_size != 0) {
-		for (int i = 0; i < previous_path_size; ++i) {
-	  		next_x_vals.push_back(previous_path_x[i]);
-			next_y_vals.push_back(previous_path_y[i]);
-	 	}
+	  // next path values
+	  vector<double> next_x_vals;
+	  vector<double> next_y_vals;
+
+	  for (int i = 0; i < previous_path_size; i++) {
+	  	next_x_vals.push_back(previous_path_x[i]);
+		next_y_vals.push_back(previous_path_y[i]);
+	  }
+
+	  // vals to fit spline
+	  vector<double> ptsx;
+	  vector<double> ptsy;
+
+	  // start spline fit with current pos or end of previous path pos 
+	  if (previous_path_size < 2) {
+		double prev_car_x = car_x - cos(car_yaw);
+		double prev_car_y = car_y - sin(car_yaw);
+
+		ptsx.push_back(prev_car_x);
+		ptsx.push_back(car_x);
+
+		ptsy.push_back(prev_car_y);
+		ptsy.push_back(car_y);
+	  } else {
 	  	pos_x = previous_path_x.back();
 		pos_y = previous_path_y.back();
 
-		double pos_x2 = previous_path_x[previous_path_size - 2];
-		double pos_y2 = previous_path_y[previous_path_size - 2];
-		yaw = atan2(pos_y-pos_y2, pos_x-pos_x2);
+		double pos_x_prev = previous_path_x[previous_path_size - 2];
+		double pos_y_prev = previous_path_y[previous_path_size - 2];
+		yaw = atan2(pos_y-pos_y_prev, pos_x-pos_x_prev);
+
+		ptsx.push_back(pos_x_prev);
+		ptsx.push_back(pos_x);
+
+		ptsy.push_back(pos_y_prev);
+		ptsy.push_back(pos_y);
 	  }
 
-	  // translate current position to Frenet
-	  vector<double> pos_frenet = getFrenet(pos_x, pos_y, yaw, map_waypoints_x, map_waypoints_y);
-	  double frenet_s = pos_frenet[0];
-	  double frenet_d = pos_frenet[1];
+	  // get points in frenet coordinates to fit spline to middle of lane
+	  for (int i = 1; i <= 3; i++) {
+	  	double next_s = car_s + 30*i;
+		double next_d = 2+4*lane;
+		vector<double> XY = getXY(next_s,next_d,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+		ptsx.push_back(XY[0]);
+		ptsy.push_back(XY[1]);
+	  }
 
-	  // draw straight line in frenet coordinates (follows lane) and transform them back to XY for spline fitting
-	  vector<double> spline_x;
-	  vector<double> spline_y;
-	  double dist = 1;
-	  for (int i = 0; i < 25; ++i) {
-	  	double next_s = frenet_s + dist*i;
-		double next_d = frenet_d;
-		vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-		spline_x.push_back(next_xy[0]);
-		spline_y.push_back(next_xy[1]);
-	  } 
+	  // transform spline points to vehicle coordinates
+	  for (int i = 0; i < ptsx.size(); i++) {
+	  	double shift_x = ptsx[i] - pos_x;
+		double shift_y = ptsy[i] - pos_y;
 
-	  // fit spline to points
+		ptsx[i] = (shift_x*cos(0-yaw)-shift_y*sin(0-yaw));
+		ptsy[i] = (shift_x*sin(0-yaw)+shift_y*cos(0-yaw));
+	  }
+
+	  // fit spline to center of lane
 	  tk::spline s;
-	  s.set_points(spline_x, spline_y);
+	  s.set_points(ptsx, ptsy);
 
-	  // create trajectory along spline function (estimation)
-	  dist = 0.5;
-	  double speed_scalar = 0.44;
-	  for (int i = 0; i < 50 - previous_path_size; ++i) {
-		// find next point on spline
-		double spline_x = pos_x + dist;
-	        double spline_y = s(spline_x);
+	  // generate points along as path
+	  double target_x = 30.0;
+	  double target_y = s(target_x);
+	  double target_dist = sqrt((target_x)*(target_x) + (target_y)*(target_y));
+	  double x_add_on = 0;
 
-		// create unit vector to next point scaled for velocity
-		Eigen::VectorXd unit_v(2);
-		unit_v << spline_x-pos_x,
-		          spline_y-pos_y;
-		unit_v /= unit_v.norm();
-		unit_v *= speed_scalar;
+	  for (int i = 1; i <= 50-previous_path_size; i++) {
+	  	double N = (target_dist/(0.02*ref_v/2.24));
+		double x_point = x_add_on + (target_x)/N;
+		double y_point = s(x_point);
 
-		next_x_vals.push_back(pos_x + unit_v[0]);
-		next_y_vals.push_back(pos_y + unit_v[1]);
+		x_add_on = x_point;
 
-		// update position for next calculation
-		pos_x += unit_v[0];
-		pos_y += unit_v[1];
+		double x_ref = x_point;
+		double y_ref = y_point;
+
+		x_point = (x_ref *cos(yaw)-y_ref*sin(yaw));
+		y_point = (x_ref *sin(yaw)+y_ref*cos(yaw));
+
+		x_point += pos_x;
+		y_point += pos_y;
+
+		next_x_vals.push_back(x_point);
+		next_y_vals.push_back(y_point);
 	  }
 
 	  msgJson["next_x"] = next_x_vals;
