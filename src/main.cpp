@@ -77,7 +77,7 @@ int main() {
           double car_s = j[1]["s"];
           double car_d = j[1]["d"];
           double car_yaw = j[1]["yaw"];
-          double car_speed = j[1]["speed"];
+          double car_speed = j[1]["speed"]; //mph
 
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
@@ -100,11 +100,23 @@ int main() {
 	  double pos_x = car_x;
 	  double pos_y = car_y;
 	  double yaw = deg2rad(car_yaw);
+	  double current_v = car_speed;
+	  // if there is a previous path available, get speed at the end of that path
+	  if (previous_path_size == 1) {
+	  	current_v = (distance(car_x, car_y, previous_path_x[0], previous_path_y[0])/0.02)*2.24;
+	  } else if (previous_path_size > 1) {
+		double x1 = previous_path_x[previous_path_size - 2];
+		double y1 = previous_path_y[previous_path_size - 2];
+		double x2 = previous_path_x.back();
+		double y2 = previous_path_y.back();
+	  	current_v = (distance(x1, y1, x2, y2)/0.02)*2.24;
+	  }
 
 	  // next path values
 	  vector<double> next_x_vals;
 	  vector<double> next_y_vals;
 
+	  // add previous path to next path vals
 	  for (int i = 0; i < previous_path_size; i++) {
 	  	next_x_vals.push_back(previous_path_x[i]);
 		next_y_vals.push_back(previous_path_y[i]);
@@ -166,13 +178,18 @@ int main() {
 	  double target_y = s(target_x);
 	  double target_dist = sqrt((target_x)*(target_x) + (target_y)*(target_y));
 	  double x_add_on = 0;
+	  double prev_v = 0.02*current_v/2.24;
+	  double accel = 0.0025;
 
-	  for (int i = 1; i <= 50-previous_path_size; i++) {
+	  for (int i = 0; i < 50-previous_path_size; i++) {
 	  	double N = (target_dist/(0.02*ref_v/2.24));
-		double x_point = x_add_on + (target_x)/N;
-		double y_point = s(x_point);
-
+		double x_point = x_add_on + prev_v;
 		x_add_on = x_point;
+		if (ref_v - (prev_v/0.02)*2.24 > 2.0) {
+			x_point += accel;
+			prev_v += accel;
+		}
+		double y_point = s(x_point);
 
 		double x_ref = x_point;
 		double y_ref = y_point;
