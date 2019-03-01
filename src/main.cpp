@@ -70,6 +70,10 @@ int main() {
         
         if (event == "telemetry") {
           // j[1] is the data JSON object
+
+	  // target lane and velocity
+	  int lane = 1;
+	  double ref_v = 49.5; // mph
           
           // Main car's localization Data
           double car_x = j[1]["x"];
@@ -94,8 +98,6 @@ int main() {
 
 
 	  // reference variables
-	  int lane = 1;
-	  double ref_v = 49.5; // mph
 	  int previous_path_size = previous_path_x.size();
 	  double pos_x = car_x;
 	  double pos_y = car_y;
@@ -177,17 +179,22 @@ int main() {
 	  double target_x = 30.0;
 	  double target_y = s(target_x);
 	  double target_dist = sqrt((target_x)*(target_x) + (target_y)*(target_y));
-	  double x_add_on = 0;
-	  double prev_v = 0.02*current_v/2.24;
+	  double total_x = 0; // holds total distance from pos_x to next point 
+	  double prev_v = 0.02*current_v/2.24; // in meters
 	  double accel = 0.0025;
+	  
 
 	  for (int i = 0; i < 50-previous_path_size; i++) {
-	  	double N = (target_dist/(0.02*ref_v/2.24));
-		double x_point = x_add_on + prev_v;
-		x_add_on = x_point;
-		if (ref_v - (prev_v/0.02)*2.24 > 2.0) {
+		double N = (target_dist/(0.02*ref_v/2.24));
+	  	double target_v = target_x/N;
+		double x_point = total_x + prev_v;
+		total_x = x_point;
+		// accelarate until prev_v is withing threshold of target_v, then maintain target_v
+		if (abs(prev_v - target_v) > 0.01) {
 			x_point += accel;
 			prev_v += accel;
+		} else {
+			prev_v = target_v;
 		}
 		double y_point = s(x_point);
 
