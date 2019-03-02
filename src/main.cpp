@@ -72,8 +72,9 @@ int main() {
           // j[1] is the data JSON object
 
 	  // target lane and velocity
-	  int lane = 1;
+	  int lane = 1; // 0, 1, or 2
 	  double ref_v = 49.5; // mph
+	  int a = 1; // 1 for accelarate, -1 for decelerate
           
           // Main car's localization Data
           double car_x = j[1]["x"];
@@ -96,6 +97,41 @@ int main() {
 
           json msgJson;
 
+	  // create list of cars in front of us AND in the same lane
+	  // get list of cars in front in same lane
+	  vector<vector<double>> cars_in_front;
+	  for (int i = 0; i < sensor_fusion.size(); i++) {
+		double s_val = sensor_fusion[i][5];
+		double d_val = sensor_fusion[i][6];
+		if (get_lane(d_val)==lane && s_val>car_s) {
+			cars_in_front.push_back(sensor_fusion[i]);	
+		}
+	  }  
+	  // get closest car in front of us
+	  vector<double> lead_car;
+	  if (cars_in_front.size() > 0) {
+		lead_car = cars_in_front[0];
+		for (int i = 0; i < cars_in_front.size(); i++) {
+			double current_s = cars_in_front[i][5];
+			if (current_s < lead_car[5]) {
+				lead_car = cars_in_front[i];
+			}
+		}
+
+		// check if lead car is close enough to follow
+		double lead_s = lead_car[5];
+		if (lead_s - car_s < 30.0) {
+			double lvx = lead_car[3];
+			double lvy = lead_car[4];
+			double lead_v = sqrt(lvx*lvx + lvy*lvy) *2.24;
+			// change 'a' to decelerate, change ref_v to lead_v
+			a = -1;
+			ref_v = lead_v;
+		}
+	  }  
+	  
+	  // get velocity of lead car to set as our reference velocity
+
 
 	  // reference variables
 	  int previous_path_size = previous_path_x.size();
@@ -111,7 +147,7 @@ int main() {
 		double y1 = previous_path_y[previous_path_size - 2];
 		double x2 = previous_path_x.back();
 		double y2 = previous_path_y.back();
-	  	current_v = (distance(x1, y1, x2, y2)/0.02)*2.24;
+	  	current_v = (distance(x1, y1, x2, y2)/0.02)*2.24; // mph
 	  }
 
 	  // next path values
@@ -181,7 +217,7 @@ int main() {
 	  double target_dist = sqrt((target_x)*(target_x) + (target_y)*(target_y));
 	  double total_x = 0; // holds total distance from pos_x to next point 
 	  double prev_v = 0.02*current_v/2.24; // in meters
-	  double accel = 0.0025;
+	  double accel = 0.0025*a;
 	  
 
 	  for (int i = 0; i < 50-previous_path_size; i++) {
