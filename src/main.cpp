@@ -103,7 +103,7 @@ int main() {
 	  for (int i = 0; i < sensor_fusion.size(); i++) {
 		double s_val = sensor_fusion[i][5];
 		double d_val = sensor_fusion[i][6];
-		if (get_lane(d_val)==lane && s_val>car_s) {
+		if ((get_lane(d_val)==lane) && (s_val>car_s || (s_val<50.0 && car_s>6900))) {
 			cars_in_front.push_back(sensor_fusion[i]);	
 		}
 	  }  
@@ -120,7 +120,7 @@ int main() {
 
 		// check if lead car is close enough to follow
 		double lead_s = lead_car[5];
-		if (lead_s - car_s < 30.0) {
+		if (lead_s - car_s < 40.0) {
 			double lvx = lead_car[3];
 			double lvy = lead_car[4];
 			double lead_v = sqrt(lvx*lvx + lvy*lvy) *2.24;
@@ -130,9 +130,6 @@ int main() {
 		}
 	  }  
 	  
-	  // get velocity of lead car to set as our reference velocity
-
-
 	  // reference variables
 	  int previous_path_size = previous_path_x.size();
 	  double pos_x = car_x;
@@ -217,7 +214,7 @@ int main() {
 	  double target_dist = sqrt((target_x)*(target_x) + (target_y)*(target_y));
 	  double total_x = 0; // holds total distance from pos_x to next point 
 	  double prev_v = 0.02*current_v/2.24; // in meters
-	  double accel = 0.0025*a;
+	  double accel = 0.003*a;
 	  
 
 	  for (int i = 0; i < 50-previous_path_size; i++) {
