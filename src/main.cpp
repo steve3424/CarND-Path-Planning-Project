@@ -103,7 +103,7 @@ int main() {
 	  for (int i = 0; i < sensor_fusion.size(); i++) {
 		double s_val = sensor_fusion[i][5];
 		double d_val = sensor_fusion[i][6];
-		if ((get_lane(d_val)==lane) && (s_val>car_s || (s_val<50.0 && car_s>6900))) {
+		if ((get_lane(d_val)==lane) && s_val>car_s) {
 			cars_in_front.push_back(sensor_fusion[i]);	
 		}
 	  }  
@@ -129,6 +129,23 @@ int main() {
 			ref_v = lead_v;
 		}
 	  }  
+
+	  if (ref_v < 49.5) {
+	  	switch(lane) {
+		  case 0:
+		    // generate trajectory right
+		    std::cout << "r" << std::endl;
+		    break;
+		  case 1:
+		    // generate left and right
+		    std::cout << "lr" << std::endl;
+		    break;
+		  case 2:
+		    // generate left
+		    std::cout << "l" << std::endl;
+		    break;
+		}
+	  }
 	  
 	  // reference variables
 	  int previous_path_size = previous_path_x.size();
