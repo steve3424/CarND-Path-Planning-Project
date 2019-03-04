@@ -97,6 +97,12 @@ int main() {
 
           json msgJson;
 
+
+	  // if previous path exists, use the s position at the end of that path
+	  if (previous_path_x.size() > 2) {
+	  	car_s = end_path_s;
+	  }
+
 	  // create list of cars in front of us AND in the same lane
 	  // get list of cars in front in same lane
 	  vector<vector<double>> cars_in_front;
