@@ -1,6 +1,4 @@
--Fix bug where car slows down to a stop in the middle of the track
-	--Caused by x values in spline fitting not being ordered
-	--Likely caused by deceleration algorithm
+-If deceleration is too abrupt (cut-off by car), spline error will occur
 
 -Use variable acceleration instead of fixed value
 
