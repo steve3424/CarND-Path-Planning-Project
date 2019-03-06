@@ -126,7 +126,7 @@ int main() {
 
 		// check if lead car is close enough to follow
 		double lead_s = lead_car[5];
-		if (lead_s - car_s < 40.0) {
+		if (lead_s - car_s < 25.0) {
 			double lvx = lead_car[3];
 			double lvy = lead_car[4];
 			double lead_v = sqrt(lvx*lvx + lvy*lvy) *2.24;
