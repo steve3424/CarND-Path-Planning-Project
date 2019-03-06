@@ -75,6 +75,7 @@ int main() {
 	  int lane = 1; // 0, 1, or 2
 	  double ref_v = 49.5; // mph
 	  int a = 1; // 1 for accelarate, -1 for decelerate
+	  bool change_lanes = false;
           
           // Main car's localization Data
           double car_x = j[1]["x"];
@@ -133,8 +134,11 @@ int main() {
 			// change 'a' to decelerate, change ref_v to lead_v
 			a = -1;
 			ref_v = lead_v;
+			change_lanes = true;
 		}
 	  }  
+
+
 	  
 	  // reference variables
 	  int previous_path_size = previous_path_x.size();
