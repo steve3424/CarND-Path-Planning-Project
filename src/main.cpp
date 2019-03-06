@@ -71,12 +71,6 @@ int main() {
         if (event == "telemetry") {
           // j[1] is the data JSON object
 
-	  // target lane and velocity
-	  int lane = 1; // 0, 1, or 2
-	  double ref_v = 49.5; // mph
-	  int a = 1; // 1 for accelarate, -1 for decelerate
-	  bool change_lanes = false;
-          
           // Main car's localization Data
           double car_x = j[1]["x"];
           double car_y = j[1]["y"];
@@ -98,11 +92,24 @@ int main() {
 
           json msgJson;
 
-
-	  // if previous path exists, use the s position at the end of that path
+	  // if previous path exists, use the s and d positions at the end of that path
 	  if (previous_path_x.size() > 2) {
 	  	car_s = end_path_s;
+		car_d = end_path_d;
 	  }
+
+	  // reference variables 
+	  int lane = 2; // 0, 1, or 2
+	  // use car_d to determine current lane
+	  if (car_d < 4) {
+	  	lane = 0;
+	  } else if (car_d < 8) {
+	  	lane = 1;
+	  } 
+
+	  double ref_v = 49.5; // mph
+	  int a = 1; // 1 for accelarate, -1 for decelerate
+	  bool change_lanes = false;
 
 	  // create list of cars in front of us AND in the same lane
 	  // get list of cars in front in same lane
@@ -138,8 +145,6 @@ int main() {
 		}
 	  }  
 
-
-	  
 	  // reference variables
 	  int previous_path_size = previous_path_x.size();
 	  double pos_x = car_x;
