@@ -145,6 +145,80 @@ int main() {
 		}
 	  }  
 
+	  // if there is a lead vehicle, try and change lanes
+	  if (change_lanes) {
+		bool safe = true;
+	  	switch (lane) {
+			case 0:
+				// check if any cars in potential lane are too close 
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (4 < d_val && d_val < 8) {
+						if (abs(future_s - car_s) < 20.0) {
+							safe = false;
+						} 
+					}
+	  			}
+
+				// change lanes if it is safe
+				if (safe) {
+					lane = 1;
+				}
+				break;
+			case 1:
+				// check cars in potential lane
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (d_val < 4) {
+						if (abs(future_s - car_s) < 20.0) {
+							safe = false;
+						} 
+					}
+	  			}
+
+				// change lanes if it is safe
+				if (safe) {
+					lane = 0;
+				}
+				break;
+			case 2:
+				// check cars in potential lane
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (4 < d_val && d_val < 8) {
+						if (abs(future_s - car_s) < 20.0) {
+							safe = false;
+						} 
+					}
+	  			}
+
+				// change lanes if it is safe
+				if (safe) {
+					lane = 1;
+				}
+				break;
+		
+		}
+	  }
+
 	  // reference variables
 	  int previous_path_size = previous_path_x.size();
 	  double pos_x = car_x;
