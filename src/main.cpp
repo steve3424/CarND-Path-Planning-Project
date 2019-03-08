@@ -134,7 +134,7 @@ int main() {
 
 		// check if lead car is close enough to follow
 		double lead_s = lead_car[5];
-		if (lead_s - car_s < 25.0) {
+		if (lead_s - car_s < 20.0) {
 			double lvx = lead_car[3];
 			double lvy = lead_car[4];
 			double lead_v = sqrt(lvx*lvx + lvy*lvy) *2.24;
@@ -147,7 +147,10 @@ int main() {
 
 	  // if there is a lead vehicle, try and change lanes
 	  if (change_lanes) {
-		bool safe = true;
+		bool lsafe = true;
+		bool rsafe = true;
+		bool change_left = true;
+		bool change_right = true;
 	  	switch (lane) {
 			case 0:
 				// check if any cars in potential lane are too close 
@@ -161,18 +164,29 @@ int main() {
 					double future_s = s_val + 50*0.02;
 					if (4 < d_val && d_val < 8) {
 						if (abs(future_s - car_s) < 20.0) {
-							safe = false;
+							rsafe = false;
 						} 
 					}
 	  			}
 
-				// change lanes if it is safe
-				if (safe) {
-					lane = 1;
+				// change lanes if it is safe and optimal
+				if (rsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((4 < d_val && d_val < 8) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_left = false;
+						}
+					}
+					
+					// change to lane if it is better
+					if (change_left) {
+						lane = 1;
+					}
 				}
 				break;
 			case 1:
-				// check cars in potential lane
+				// check if left lane change is safe
 				for (int i = 0; i < sensor_fusion.size(); i++) {
 					double s_val = sensor_fusion[i][5];
 					double d_val = sensor_fusion[i][6];
@@ -183,14 +197,54 @@ int main() {
 					double future_s = s_val + 50*0.02;
 					if (d_val < 4) {
 						if (abs(future_s - car_s) < 20.0) {
-							safe = false;
+							lsafe = false;
 						} 
 					}
 	  			}
 
-				// change lanes if it is safe
-				if (safe) {
+				// if left lane is safe, get lane speed
+				if (lsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((d_val < 4) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_left = false;
+						}
+					}
+				}
+
+				// check if right lane change is safe
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (d_val > 8) {
+						if (abs(future_s - car_s) < 20.0) {
+							rsafe = false;
+						} 
+					}
+	  			}
+				
+				// if right lane is safe, get lane speed
+				if (rsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((d_val < 4) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_right = false;
+						}
+					}
+				}
+
+				// change left or right
+				if (lsafe && change_left) {
 					lane = 0;
+				} else if (rsafe && change_right) {
+					lane = 2;
 				}
 				break;
 			case 2:
@@ -205,15 +259,26 @@ int main() {
 					double future_s = s_val + 50*0.02;
 					if (4 < d_val && d_val < 8) {
 						if (abs(future_s - car_s) < 20.0) {
-							safe = false;
+							lsafe = false;
 						} 
 					}
 	  			}
 
-				// change lanes if it is safe
-				if (safe) {
-					lane = 1;
+				// if left lane change is safe, get lane speed
+				if (lsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((d_val < 4) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_left = false;
+						}
+					}
+
+					if (change_left) {
+						lane = 1;
+					}
 				}
+
 				break;
 		
 		}
@@ -304,7 +369,6 @@ int main() {
 	  double total_x = 0; // holds total distance from pos_x to next point 
 	  double prev_v = 0.02*current_v/2.24; // in meters
 	  double accel = 0.003*a;
-	  
 
 	  for (int i = 0; i < 50-previous_path_size; i++) {
 		double N = (target_dist/(0.02*ref_v/2.24));
@@ -317,6 +381,10 @@ int main() {
 			prev_v += accel;
 		} else {
 			prev_v = target_v;
+		}
+		// ENFORCE SPEED LIMIT (fixes acceleration bug caused by lane change)
+		if (prev_v > 0.435) {
+			prev_v = 0.435;
 		}
 		double y_point = s(x_point);
 
