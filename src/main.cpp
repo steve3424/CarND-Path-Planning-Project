@@ -71,11 +71,6 @@ int main() {
         if (event == "telemetry") {
           // j[1] is the data JSON object
 
-	  // target lane and velocity
-	  int lane = 1; // 0, 1, or 2
-	  double ref_v = 49.5; // mph
-	  int a = 1; // 1 for accelarate, -1 for decelerate
-          
           // Main car's localization Data
           double car_x = j[1]["x"];
           double car_y = j[1]["y"];
@@ -97,11 +92,24 @@ int main() {
 
           json msgJson;
 
-
-	  // if previous path exists, use the s position at the end of that path
+	  // if previous path exists, use the s and d positions at the end of that path
 	  if (previous_path_x.size() > 2) {
 	  	car_s = end_path_s;
+		car_d = end_path_d;
 	  }
+
+	  // reference variables 
+	  int lane = 2; // 0, 1, or 2
+	  // use car_d to determine current lane
+	  if (car_d < 4) {
+	  	lane = 0;
+	  } else if (car_d < 8) {
+	  	lane = 1;
+	  } 
+
+	  double ref_v = 49.5; // mph
+	  int a = 1; // 1 for accelarate, -1 for decelerate
+	  bool change_lanes = false;
 
 	  // create list of cars in front of us AND in the same lane
 	  // get list of cars in front in same lane
@@ -127,16 +135,156 @@ int main() {
 
 		// check if lead car is close enough to follow
 		double lead_s = lead_car[5];
-		if (lead_s - car_s < 25.0) {
+		if (lead_s - car_s < 20.0) {
 			double lvx = lead_car[3];
 			double lvy = lead_car[4];
 			double lead_v = sqrt(lvx*lvx + lvy*lvy) *2.24;
 			// change 'a' to decelerate, change ref_v to lead_v
 			a = -1;
 			ref_v = lead_v;
+			change_lanes = true;
 		}
 	  }  
-	  
+
+	  // if there is a lead vehicle, try and change lanes
+	  if (change_lanes) {
+		bool lsafe = true;
+		bool rsafe = true;
+		bool change_left = true;
+		bool change_right = true;
+	  	switch (lane) {
+			case 0:
+				// check if any cars in potential lane are too close 
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (4 < d_val && d_val < 8) {
+						if (abs(future_s - car_s) < 20.0) {
+							rsafe = false;
+						} 
+					}
+	  			}
+
+				// change lanes if it is safe and optimal
+				if (rsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((4 < d_val && d_val < 8) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_left = false;
+						}
+					}
+					
+					// change to lane if it is better
+					if (change_left) {
+						lane = 1;
+					}
+				}
+				break;
+			case 1:
+				// check if left lane change is safe
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (d_val < 4) {
+						if (abs(future_s - car_s) < 20.0) {
+							lsafe = false;
+						} 
+					}
+	  			}
+
+				// if left lane is safe, get lane speed
+				if (lsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((d_val < 4) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_left = false;
+						}
+					}
+				}
+
+				// check if right lane change is safe
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (d_val > 8) {
+						if (abs(future_s - car_s) < 20.0) {
+							rsafe = false;
+						} 
+					}
+	  			}
+				
+				// if right lane is safe, get lane speed
+				if (rsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((d_val < 4) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_right = false;
+						}
+					}
+				}
+
+				// change left or right
+				if (lsafe && change_left) {
+					lane = 0;
+				} else if (rsafe && change_right) {
+					lane = 2;
+				}
+				break;
+			case 2:
+				// check cars in potential lane
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					double s_val = sensor_fusion[i][5];
+					double d_val = sensor_fusion[i][6];
+					// calculate future s value
+					double lvx = sensor_fusion[i][3];
+					double lvy = sensor_fusion[i][4];
+					double lead_v = sqrt(lvx*lvx + lvy*lvy); // meters per second
+					double future_s = s_val + 50*0.02;
+					if (4 < d_val && d_val < 8) {
+						if (abs(future_s - car_s) < 20.0) {
+							lsafe = false;
+						} 
+					}
+	  			}
+
+				// if left lane change is safe, get lane speed
+				if (lsafe) {
+					for (int i = 0; i < sensor_fusion.size(); i++) {
+						double s_val = sensor_fusion[i][5];
+						double d_val = sensor_fusion[i][6];	
+						if ((d_val < 4) && (s_val > car_s) && (s_val - car_s < 50.0)) {
+							change_left = false;
+						}
+					}
+
+					if (change_left) {
+						lane = 1;
+					}
+				}
+
+				break;
+		
+		}
+	  }
+
 	  // reference variables
 	  int previous_path_size = previous_path_x.size();
 	  double pos_x = car_x;
@@ -222,7 +370,6 @@ int main() {
 	  double total_x = 0; // holds total distance from pos_x to next point 
 	  double prev_v = 0.02*current_v/2.24; // in meters
 	  double accel = 0.003*a;
-	  
 
 	  for (int i = 0; i < 50-previous_path_size; i++) {
 		double N = (target_dist/(0.02*ref_v/2.24));
@@ -235,6 +382,10 @@ int main() {
 			prev_v += accel;
 		} else {
 			prev_v = target_v;
+		}
+		// ENFORCE SPEED LIMIT (fixes acceleration bug caused by lane change)
+		if (prev_v > 0.435) {
+			prev_v = 0.435;
 		}
 		double y_point = s(x_point);
 
